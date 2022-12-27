@@ -8,6 +8,11 @@ from pymisp import PyMISP, MISPEvent, PyMISPError
 from datetime import date
 from dateutil.parser import *
 
+# Try to disable verify SSL warnings
+try:
+    requests.packages.urllib3.disable_warnings()
+except:
+    pass
 
 
 def config_parser(section, key):
