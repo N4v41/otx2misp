@@ -58,7 +58,7 @@ def check_if_empty_att(att):
     empty = False
     if type(att) == list and len(att) == 0:
         empty = True
-    elif (att is None) or (att is " ") or (att is ''):
+    elif (att == None) or (att == " ") or (att == ''):
         empty = True
     else:
         empty = False
@@ -133,7 +133,7 @@ def send2misp(pulse, proxy_usage):
 def show_att(key, att):
     if type(att) == list and len(att) == 0:
         print("\t\t [-] " + key + ": " + "Unknown")
-    elif (att is not None) and (att is not " ") and (att is not ''):
+    elif (att != None) and (att != " ") and (att != ''):
         print("\t\t [-] "+key+": " + str(att))
     else:
         print("\t\t [-] "+key+": " + "Unknown")
@@ -151,14 +151,14 @@ def show_ioc(ioc):
     print("\t\t\t [-] New IoC with ID: " + str(ioc['id']))
     print("\t\t\t\t [-] IoC: " + str(ioc['indicator']))
     print("\t\t\t\t [-] type: " + ioc['type'])
-    if (ioc['content'] is not None) and (ioc['content'] is not " ") and (ioc['content'] is not ''):
+    if (ioc['content'] != None) and (ioc['content'] != " ") and (ioc['content'] != ''):
         print("\t\t\t\t [-] Content: " + ioc['content'].replace("\n", "\n\t\t\t\t\t"))
     print("\t\t\t\t [-] created: " + str(ioc['created']))
-    if (ioc['title'] is not '') and (ioc['title'] is not None):
+    if (ioc['title'] != '') and (ioc['title'] != None):
         print("\t\t\t\t [-] title: " + str(ioc['title']))
-    if ioc['description'] is not '':
+    if ioc['description'] != '':
         print("\t\t\t\t [-] description: " + str(ioc['description']))
-    if ioc['role'] is not None and ioc['role'] is not '':
+    if ioc['role'] != None and ioc['role'] != '':
         print("\t\t\t\t [-] role: " + str(ioc['role']))
 
 
@@ -171,7 +171,7 @@ def show_references(references):
 
 def show_pulse(pulse):
     print("\t[+] New OTX Pulse by "+ pulse['author_name'] + ' created: '+pulse['created'])
-    if pulse['modified'] is not '':
+    if pulse['modified'] != '':
         print("\t\t [-] This pulse was edited: "+pulse['modified'])
     print("\t\t [-] Title: " + pulse['name'])
     print("\t\t [-] ID: " + pulse['id'])
@@ -208,8 +208,8 @@ def filter_pulse_by_keyword(pulse, keywords_list):
 
 def search_on_otx(api, alerts, techniques, max_days):
     pulse_list = []
-    keywords_list = load_file("keywords_test.txt")
-    techniques_list = load_file("attack_ids_test.txt")
+    keywords_list = load_file("keywords.txt")
+    techniques_list = load_file("attack_ids.txt")
     today = date.today()
     date_today = today.strftime("%Y-%m-%d")
     now = parse(date_today)
