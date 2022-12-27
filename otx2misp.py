@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-from OTXv2 import OTXv2
-from pymisp import PyMISP, MISPEvent, PyMISPError
-from datetime import date
-from dateutil.parser import *
 import configparser
 import argparse
 import sys
 import os
+from OTXv2 import OTXv2
+from pymisp import PyMISP, MISPEvent, PyMISPError
+from datetime import date
+from dateutil.parser import *
+
 
 
 def config_parser(section, key):
@@ -98,33 +99,35 @@ def send2misp(pulse, proxy_usage):
         for r in pulse['references']:
             event.add_attribute("link", r)
 
+    attribute_map = {
+        'IPv4': 'ip-src',
+        'IPv6': 'ip-src',
+        'domain': 'domain',
+        'YARA': 'yara',
+        'hostname': 'hostname',
+        'email': 'email',
+        'URL': 'url',
+        'MUTEX': 'mutex',
+        'CVE': 'other',
+        'FileHash-MD5': 'md5',
+        'FileHash-SHA1': 'sha1',
+        'FileHash-SHA256': 'sha256',
+        'FileHash-PEHASH': 'pehash',
+        'FileHash-IMPHASH': 'imphash'
+    }
+
     for ioc in pulse['indicators']:
-        if ioc['type'] == 'IPv4' or ioc['type'] == 'IPv6':
-            event.add_attribute("ip-src", ioc['title'])
-        elif ioc['type'] == 'domain':
-            event.add_attribute("domain", ioc['indicator'])
-        elif ioc['type'] == 'YARA':
-            event.add_attribute("yara", ioc['content'])
-        elif ioc['type'] == 'hostname':
-            event.add_attribute("hostname", ioc['indicator'])
-        elif ioc['type'] == 'email':
-            event.add_attribute("email", ioc['indicator'])
-        elif ioc['type'] == 'URL':
-            event.add_attribute("url", ioc['indicator'])
-        elif ioc['type'] == 'MUTEX':
-            event.add_attribute("mutex", ioc['indicator'])
-        elif ioc['type'] == 'CVE':
-            event.add_attribute("other", "CVE: "+ioc['indicator'])
-        elif ioc['type'] == 'FileHash-MD5':
-            event.add_attribute("md5", ioc['indicator'])
-        elif ioc['type'] == 'FileHash-SHA1':
-            event.add_attribute("sha1", ioc['indicator'])
-        elif ioc['type'] == 'FileHash-SHA256':
-            event.add_attribute("sha256", ioc['indicator'])
-        elif ioc['type'] == 'FileHash-PEHASH':
-            event.add_attribute("pehash", ioc['indicator'])
-        elif ioc['type'] == 'FileHash-IMPHASH':
-            event.add_attribute("imphash", ioc['indicator'])
+        attribute_name = attribute_map.get(ioc['type'], 'other')
+        if attribute_name == 'other':
+            event.add_attribute(attribute_name, "CVE: " + ioc['indicator'])
+        elif attribute_name == 'ip-src':
+            event.add_attribute(attribute_name, ioc['title'])
+        elif attribute_name == 'yara':
+            event.add_attribute(attribute_name, ioc['content'])
+        else:
+            event.add_attribute(attribute_name, ioc['indicator'])
+
+
 
     event = misp.add_event(event, pythonify=True)
     print("\t [*] Event with ID " + str(event.id) + " has been successfully stored.")
@@ -254,7 +257,7 @@ def start_listen_otx():
                                                "keywords of your list.",
                                                action="store_true")
     parser.add_argument("-d", "--days", help=" Filter OTX pulses by days (e.g. Last 7 days: -d 7 )")
-    parser.add_argument("-m", "--misp", help="Send IoCs from Twitter to MISP", action="store_true")
+    parser.add_argument("-m", "--misp", help="Send IoCs from OTX to MISP", action="store_true")
     parser.add_argument("-p", "--proxy", help="Set a proxy for sending the alert to your MISP instance..",
                         action="store_true")
     parser.add_argument("-t", "--techniques", help=" Filter OTX pulses gathered in case of a match with any "
@@ -268,32 +271,36 @@ def start_listen_otx():
     else:
         max_days = 7
 
+    #python function to send puses to misp
+    def send_to_misp(pulses, proxy_usage):
+        if args.misp:
+            if args.proxy:
+                proxy_usage = True
+            print("[*] Sending alerts to MISP")
+            for t in pulses:
+                send2misp(t, proxy_usage)
+
+
     if args.alerts:
         print("[*] Checking if the pulses gathered contain any keyword from your list.")
         if args.techniques:
             pulses = search_on_otx(api, True, True, max_days)
         else:
             pulses = search_on_otx(api, True, False, max_days)
-        if args.misp:
-            if args.proxy:
-                proxy_usage = True
-            print("[*] Sending alerts to MISP")
-            for t in pulses:
-                send2misp(t, proxy_usage)
+        send_to_misp(pulses, proxy_usage)
         sys.exit(0)
+
     elif args.techniques:
-        print("[*] Checking if the pulses gathered gathered contain any ATT&CK Technique from your list.")
+        print("[*] Checking if the pulses gathered contain any ATT&CK Technique from your list.")
         pulses = search_on_otx(api, False, True, max_days)
-        if args.misp:
-            if args.proxy:
-                proxy_usage = True
-            print("[*] Sending alerts to MISP")
-            for t in pulses:
-                send2misp(t, proxy_usage)
+        send_to_misp(pulses, proxy_usage)
         sys.exit(0)
 
     else:
-        search_on_otx(api, False, False, max_days)
+        print("[*] Checking and sending subscribed pulses gathered.")
+        pulses = search_on_otx(api, False, False, max_days)
+        send_to_misp(pulses, proxy_usage)
+        sys.exit(0)
 
 
 if __name__ == '__main__':
