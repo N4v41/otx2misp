@@ -251,7 +251,7 @@ def pulse_cache(api, cache_pulse, use_cached_pulse):
     elif use_cached_pulse:
         #import pulses list from file
         with open(os.getcwd() + "/otx_pulses.cache", 'rb') as f:
-            pulses = pickle.load(pulses, f)
+            pulses = pickle.load(f)
         return pulses
     else:
         pulses = api.getall()
