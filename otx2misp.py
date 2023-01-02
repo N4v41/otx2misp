@@ -339,7 +339,7 @@ def start_listen_otx():
     
     #define verbosity as global variable
     global verbosity
-    if args.verbose == 1:
+    if args.verbose <= 1:
         verbosity = 1
     elif args.verbose == 2:
         verbosity = 2
