@@ -245,12 +245,12 @@ def pulse_cache(api, cache_pulse, use_cached_pulse):
     if cache_pulse:
         pulses = api.getall()
         #export pulses list to file
-        with open(os.getcwd() + "otx_pulses.cache", 'wb') as f:
+        with open(os.getcwd() + "./otx_pulses.cache", 'wb') as f:
             pickle.dump(pulses, f)
         return pulses
     elif use_cached_pulse:
         #import pulses list from file
-        with open(os.getcwd() + "otx_pulses.cache", 'rb') as f:
+        with open(os.getcwd() + "./otx_pulses.cache", 'rb') as f:
             pulses = pickle.load(pulses, f)
         return pulses
     else:
@@ -322,7 +322,7 @@ def start_listen_otx():
         max_days = args.days
     else:
         max_days = 7
-    
+
     dedup_events = args.misp_dedup
     cache_pulse = args.cache_pulse
     use_cached_pulse = args.use_cached_pulse
