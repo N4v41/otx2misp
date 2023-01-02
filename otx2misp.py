@@ -63,7 +63,7 @@ def new_misp_event(misp, event_name):
     return event
 
 def create_event(misp, event_name):
-    if args.misp_dedup:
+    if dedup_events:
         result = misp.search(eventinfo=event_name)
         if len(result) == 0:
             print("\t [!] Dedup parameter is active but event not exist on target misp, creating new event")
@@ -301,6 +301,11 @@ def start_listen_otx():
         max_days = args.days
     else:
         max_days = 7
+    
+    if args.misp_dedup:
+        dedup_events = True
+    else: 
+        dedup_events = False
 
     #python function to send puses to misp
     def send_to_misp(pulses, proxy_usage):
