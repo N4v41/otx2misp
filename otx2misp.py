@@ -8,9 +8,10 @@ from pymisp import PyMISP, MISPEvent, PyMISPError
 from datetime import date
 from dateutil.parser import *
 
-# Try to disable verify SSL warnings
+# disable verify SSL warnings
 try:
-    requests.packages.urllib3.disable_warnings()
+    import urllib3
+    urllib3.disable_warnings()
 except:
     pass
 
@@ -51,13 +52,33 @@ def misp_connection(url, misp_key, proxy_usage):
 
     return misp
 
-
-def create_event(misp):
+## need refactoring
+def new_misp_event(misp, event_name):
     event = MISPEvent()
     event.distribution = 0
     event.threat_level_id = 1
     event.analysis = 0
+    event.info = event_name
+    event.add_tag("OTX")
     return event
+
+def create_event(misp, event_name):
+    if args.misp_dedup:
+        result = misp.search(eventinfo=event_name)
+        if len(result) == 0:
+            print("\t [!] Dedup parameter is active but event not exist on target misp, creating new event")
+            new_misp_event(misp, event_name)
+        else:
+            for evt in result:
+                # If it exists, set 'event' to the existing event
+                if evt['Event']['info'] == event_name:
+                    if 'SharingGroup' in evt:
+                        del evt['Event']['SharingGroup']
+                    event = MISPEvent()
+                    event.load(evt)
+                    return event
+    else:
+        new_misp_event(misp, event_name)
 
 
 def check_if_empty_att(att):
@@ -68,17 +89,44 @@ def check_if_empty_att(att):
         empty = True
     else:
         empty = False
-
     return empty
+
+def map_iocs(event, pulse):
+    attribute_map = {
+    'IPv4': 'ip-src',
+    'IPv6': 'ip-src',
+    'domain': 'domain',
+    'YARA': 'yara',
+    'hostname': 'hostname',
+    'email': 'email',
+    'URL': 'url',
+    'MUTEX': 'mutex',
+    'CVE': 'other',
+    'FileHash-MD5': 'md5',
+    'FileHash-SHA1': 'sha1',
+    'FileHash-SHA256': 'sha256',
+    'FileHash-PEHASH': 'pehash',
+    'FileHash-IMPHASH': 'imphash'
+    }
+
+    for ioc in pulse['indicators']:
+        attribute_name = attribute_map.get(ioc['type'], 'other')
+        if attribute_name == 'other':
+            event.add_attribute(attribute_name, "CVE: " + ioc['indicator'])
+        elif attribute_name == 'ip-src':
+            event.add_attribute(attribute_name, ioc['title'])
+        elif attribute_name == 'yara':
+            event.add_attribute(attribute_name, ioc['content'])
+        else:
+            event.add_attribute(attribute_name, ioc['indicator'])
 
 
 def send2misp(pulse, proxy_usage):
     url = config_parser("misp", "url")
     api_key = config_parser("misp", "api_key")
     misp = misp_connection(url, api_key, proxy_usage)
-    event = create_event(misp)
-    event.add_tag("OTX")
-    event.info = pulse['name']
+    event_name = pulse['name']
+    event = create_event(misp, event_name)
     event.add_attribute('other', "This Pulse was created on:" + pulse['created'])
     if pulse['modified']:
         event.add_attribute('other', "This Pulse was edited on:" + pulse['created'])
@@ -97,45 +145,22 @@ def send2misp(pulse, proxy_usage):
         event.add_attribute("other", "targeted countries: " + str(pulse['targeted_countries']))
     if not check_if_empty_att(pulse['adversary']):
         event.add_attribute("other", "Adversary: " + pulse['adversary'])
-
     if not check_if_empty_att(pulse['attack_ids']):
         event.add_attribute("other", "MITRE ATT&CK techniques used: " + str(pulse['attack_ids']))
     if not check_if_empty_att(pulse['references']):
         for r in pulse['references']:
             event.add_attribute("link", r)
 
-    attribute_map = {
-        'IPv4': 'ip-src',
-        'IPv6': 'ip-src',
-        'domain': 'domain',
-        'YARA': 'yara',
-        'hostname': 'hostname',
-        'email': 'email',
-        'URL': 'url',
-        'MUTEX': 'mutex',
-        'CVE': 'other',
-        'FileHash-MD5': 'md5',
-        'FileHash-SHA1': 'sha1',
-        'FileHash-SHA256': 'sha256',
-        'FileHash-PEHASH': 'pehash',
-        'FileHash-IMPHASH': 'imphash'
-    }
+    #user the map ioc function to normalize event iocs
+    map_iocs(event, pulse)
 
-    for ioc in pulse['indicators']:
-        attribute_name = attribute_map.get(ioc['type'], 'other')
-        if attribute_name == 'other':
-            event.add_attribute(attribute_name, "CVE: " + ioc['indicator'])
-        elif attribute_name == 'ip-src':
-            event.add_attribute(attribute_name, ioc['title'])
-        elif attribute_name == 'yara':
-            event.add_attribute(attribute_name, ioc['content'])
-        else:
-            event.add_attribute(attribute_name, ioc['indicator'])
-
-
-
-    event = misp.add_event(event, pythonify=True)
-    print("\t [*] Event with ID " + str(event.id) + " has been successfully stored.")
+    #check if event has id and update, else add event
+    if 'id' in event:
+        misp_event = misp.update_event(event, pythonify=True)
+        print("\t [*] Event with ID " + str(event.id) + " has been successfully updated in MISP.")
+    else:
+        misp_event = misp.add_event(event, pythonify=True)
+        print("\t [*] Event with ID " + str(event.id) + " has been successfully stored in MISP.")
 
 
 def show_att(key, att):
@@ -263,6 +288,7 @@ def start_listen_otx():
                                                action="store_true")
     parser.add_argument("-d", "--days", help=" Filter OTX pulses by days (e.g. Last 7 days: -d 7 )")
     parser.add_argument("-m", "--misp", help="Send IoCs from OTX to MISP", action="store_true")
+    parser.add_argument("-mdd", "--misp_dedup", help="Send IoCs from OTX to MISP deduplicating events", action="store_true")
     parser.add_argument("-p", "--proxy", help="Set a proxy for sending the alert to your MISP instance..",
                         action="store_true")
     parser.add_argument("-t", "--techniques", help=" Filter OTX pulses gathered in case of a match with any "
