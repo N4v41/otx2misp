@@ -163,10 +163,10 @@ def send2misp(pulse, proxy_usage, dedup_events):
     #check if event has id and update, else add event
     if 'id' in event:
         misp_event = misp.update_event(event, pythonify=True)
-        print("\t [*] Event with ID " + str(event.id) + " has been successfully updated in MISP.")
+        print("\t [*] Event with ID " + str(misp_event.id) + " has been successfully updated in MISP.")
     else:
         misp_event = misp.add_event(event, pythonify=True)
-        print("\t [*] Event with ID " + str(event.id) + " has been successfully stored in MISP.")
+        print("\t [*] Event with ID " + str(misp_event.id) + " has been successfully stored in MISP.")
 
 
 def show_att(key, att):
