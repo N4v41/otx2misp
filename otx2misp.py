@@ -124,6 +124,7 @@ def map_iocs(event, pulse):
             event.add_attribute(attribute_name, ioc['content'])
         else:
             event.add_attribute(attribute_name, ioc['indicator'])
+    return event
 
 
 def send2misp(pulse, proxy_usage, dedup_events):
@@ -157,7 +158,7 @@ def send2misp(pulse, proxy_usage, dedup_events):
             event.add_attribute("link", r)
 
     #user the map ioc function to normalize event iocs
-    map_iocs(event, pulse)
+    event = map_iocs(event, pulse)
 
     #check if event has id and update, else add event
     if 'id' in event:
