@@ -3,10 +3,12 @@ import configparser
 import argparse
 import sys
 import os
+import pickle
 from OTXv2 import OTXv2
 from pymisp import PyMISP, MISPEvent, PyMISPError
 from datetime import date
 from dateutil.parser import *
+
 
 # disable verify SSL warnings
 try:
@@ -91,6 +93,7 @@ def check_if_empty_att(att):
         empty = False
     return empty
 
+#function to map pulse iocs to misp format
 def map_iocs(event, pulse):
     attribute_map = {
     'IPv4': 'ip-src',
@@ -238,15 +241,30 @@ def filter_pulse_by_keyword(pulse, keywords_list):
 
     return contains_alerts
 
+def pulse_cache(api, cache_pulse, use_cached_pulse):
+    if cache_pulse:
+        pulses = api.getall()
+        #export pulses list to file
+        with open(os.getcwd() + "otx_pulses.cache", 'wb') as f:
+            pickle.dump(pulses, f)
+        return pulses
+    elif use_cached_pulse:
+        #import pulses list from file
+        with open(os.getcwd() + "otx_pulses.cache", 'rb') as f:
+            pulses = pickle.load(pulses, f)
+        return pulses
+    else:
+        pulses = api.getall()
+        return pulses
 
-def search_on_otx(api, alerts, techniques, max_days):
+def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pulse):
     pulse_list = []
     keywords_list = load_file("keywords.txt")
     techniques_list = load_file("attack_ids.txt")
     today = date.today()
     date_today = today.strftime("%Y-%m-%d")
     now = parse(date_today)
-    pulses = api.getall()
+    pulses = pulse_cache(api, cache_pulse, use_cached_pulse)
     for pulse in pulses:
         threat = parse(pulse['created'])
         days = now - threat
@@ -292,6 +310,8 @@ def start_listen_otx():
     parser.add_argument("-mdd", "--misp_dedup", help="Send IoCs from OTX to MISP deduplicating events", action="store_true")
     parser.add_argument("-p", "--proxy", help="Set a proxy for sending the alert to your MISP instance..",
                         action="store_true")
+    parser.add_argument("-ccp", "--cache_pulse", help="Cache pulse list to improve testing performance", action="store_true")
+    parser.add_argument("-ucp", "--use_cached_pulse", help="Use cached pulse list", action="store_true")
     parser.add_argument("-t", "--techniques", help=" Filter OTX pulses gathered in case of a match with any "
                                                "ATT&CK techniques of your list.",
                                                action="store_true")
@@ -303,10 +323,10 @@ def start_listen_otx():
     else:
         max_days = 7
     
-    if args.misp_dedup:
-        dedup_events = True
-    else: 
-        dedup_events = False
+    dedup_events = args.misp_dedup
+    cache_pulse = args.cache_pulse
+    use_cached_pulse = args.use_cached_pulse
+
 
     #python function to determine proxy usage and send pulses to misp
     def send_to_misp(pulses, proxy_usage, dedup_events):
@@ -321,21 +341,21 @@ def start_listen_otx():
     if args.alerts:
         print("[*] Checking if the pulses gathered contain any keyword from your list.")
         if args.techniques:
-            pulses = search_on_otx(api, True, True, max_days)
+            pulses = search_on_otx(api, True, True, max_days, cache_pulse, use_cached_pulse)
         else:
-            pulses = search_on_otx(api, True, False, max_days)
+            pulses = search_on_otx(api, True, False, max_days, cache_pulse, use_cached_pulse)
         send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
     elif args.techniques:
         print("[*] Checking if the pulses gathered contain any ATT&CK Technique from your list.")
-        pulses = search_on_otx(api, False, True, max_days)
+        pulses = search_on_otx(api, False, True, max_days, cache_pulse, use_cached_pulse)
         send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
     else:
         print("[*] Checking and sending subscribed pulses gathered.")
-        pulses = search_on_otx(api, False, False, max_days)
+        pulses = search_on_otx(api, False, False, max_days, cache_pulse, use_cached_pulse)
         send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
