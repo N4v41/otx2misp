@@ -143,10 +143,10 @@ def send2misp(pulse, proxy_usage, dedup_events):
     #add Tag to events
     tlp = "tlp:"+pulse['tlp']
     if event_new:
-        event.add_tag(event, tlp)
+        event.add_tag(tlp)
         if len(pulse['tags']) > 0:
             for t in pulse['tags']:
-                event.add_tag(event, t)
+                event.add_tag(t)
     else:
         misp.tag(event, tlp)
         if len(pulse['tags']) > 0:
