@@ -336,12 +336,15 @@ def start_listen_otx():
                     action="count", default=0,
                     help="Verbosity, repeat to increase the verbosity level.")                                           
     args = parser.parse_args()
+    
+    #define verbosity as global variable
+    global verbosity
     if args.verbose == 1:
-        verbosity=1
+        verbosity = 1
     elif args.verbose == 2:
-        verbosity=2
+        verbosity = 2
     else :
-        verbosity=3
+        verbosity = 3
 
     proxy_usage = False
     if args.days:
