@@ -62,7 +62,7 @@ def new_misp_event(misp, event_name):
     event.add_tag("OTX")
     return event
 
-def create_event(misp, event_name):
+def create_event(misp, event_name, dedup_events):
     if dedup_events:
         result = misp.search(eventinfo=event_name)
         if len(result) == 0:
@@ -121,12 +121,12 @@ def map_iocs(event, pulse):
             event.add_attribute(attribute_name, ioc['indicator'])
 
 
-def send2misp(pulse, proxy_usage):
+def send2misp(pulse, proxy_usage, dedup_events):
     url = config_parser("misp", "url")
     api_key = config_parser("misp", "api_key")
     misp = misp_connection(url, api_key, proxy_usage)
     event_name = pulse['name']
-    event = create_event(misp, event_name)
+    event = create_event(misp, event_name, dedup_events)
     event.add_attribute('other', "This Pulse was created on:" + pulse['created'])
     if pulse['modified']:
         event.add_attribute('other', "This Pulse was edited on:" + pulse['created'])
@@ -287,6 +287,7 @@ def start_listen_otx():
                                                "keywords of your list.",
                                                action="store_true")
     parser.add_argument("-d", "--days", help=" Filter OTX pulses by days (e.g. Last 7 days: -d 7 )")
+    parser.add_argument("-all", "--all_pulses", help="Get all subscribed Pulses", action="store_true")
     parser.add_argument("-m", "--misp", help="Send IoCs from OTX to MISP", action="store_true")
     parser.add_argument("-mdd", "--misp_dedup", help="Send IoCs from OTX to MISP deduplicating events", action="store_true")
     parser.add_argument("-p", "--proxy", help="Set a proxy for sending the alert to your MISP instance..",
@@ -307,14 +308,14 @@ def start_listen_otx():
     else: 
         dedup_events = False
 
-    #python function to send puses to misp
-    def send_to_misp(pulses, proxy_usage):
+    #python function to determine proxy usage and send pulses to misp
+    def send_to_misp(pulses, proxy_usage, dedup_events):
         if args.misp:
             if args.proxy:
                 proxy_usage = True
             print("[*] Sending alerts to MISP")
             for t in pulses:
-                send2misp(t, proxy_usage)
+                send2misp(t, proxy_usage, dedup_events)
 
 
     if args.alerts:
@@ -323,19 +324,19 @@ def start_listen_otx():
             pulses = search_on_otx(api, True, True, max_days)
         else:
             pulses = search_on_otx(api, True, False, max_days)
-        send_to_misp(pulses, proxy_usage)
+        send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
     elif args.techniques:
         print("[*] Checking if the pulses gathered contain any ATT&CK Technique from your list.")
         pulses = search_on_otx(api, False, True, max_days)
-        send_to_misp(pulses, proxy_usage)
+        send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
     else:
         print("[*] Checking and sending subscribed pulses gathered.")
         pulses = search_on_otx(api, False, False, max_days)
-        send_to_misp(pulses, proxy_usage)
+        send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
 
