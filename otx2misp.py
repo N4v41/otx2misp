@@ -55,7 +55,7 @@ def misp_connection(url, misp_key, proxy_usage):
     return misp
 
 ## need refactoring
-def new_misp_event(misp, event_name):
+def new_misp_event(event_name):
     event = MISPEvent()
     event.distribution = 0
     event.threat_level_id = 1
@@ -69,7 +69,8 @@ def create_event(misp, event_name, dedup_events):
         result = misp.search(eventinfo=event_name)
         if len(result) == 0:
             print("\t [!] Dedup parameter is active but event not exist on target misp, creating new event")
-            new_misp_event(misp, event_name)
+            event = new_misp_event(event_name)
+            return event
         else:
             for evt in result:
                 # If it exists, set 'event' to the existing event
@@ -80,7 +81,8 @@ def create_event(misp, event_name, dedup_events):
                     event.load(evt)
                     return event
     else:
-        new_misp_event(misp, event_name)
+        event = new_misp_event(event_name)
+        return event
 
 
 def check_if_empty_att(att):
