@@ -70,19 +70,22 @@ def create_event(misp, event_name, dedup_events):
         if len(result) == 0:
             print("\t [!] Dedup parameter is active but event not exist on target misp, creating new event")
             event = new_misp_event(event_name)
-            return event
+            event_new = True
+            return event, event_new
         else:
             for evt in result:
                 # If it exists, set 'event' to the existing event
                 if evt['Event']['info'] == event_name:
                     if 'SharingGroup' in evt:
                         del evt['Event']['SharingGroup']
+                    event_new = False
                     event = MISPEvent()
                     event.load(evt)
-                    return event
+                    return event, event_new
     else:
         event = new_misp_event(event_name)
-        return event
+        event_new = True
+        return event, event_new
 
 
 def check_if_empty_att(att):
@@ -132,17 +135,25 @@ def send2misp(pulse, proxy_usage, dedup_events):
     api_key = config_parser("misp", "api_key")
     misp = misp_connection(url, api_key, proxy_usage)
     event_name = pulse['name']
-    event = create_event(misp, event_name, dedup_events)
+    event, event_new = create_event(misp, event_name, dedup_events)
     event.add_attribute('other', "This Pulse was created on:" + pulse['created'])
     if pulse['modified']:
         event.add_attribute('other', "This Pulse was edited on:" + pulse['created'])
 
+    #add Tag to events
     tlp = "tlp:"+pulse['tlp']
-    misp.tag(event, tlp)
-    if len(pulse['tags']) > 0:
-        for t in pulse['tags']:
-            misp.tag(event, t)
+    if event_new:
+        event.add_tag(event, tlp)
+        if len(pulse['tags']) > 0:
+            for t in pulse['tags']:
+                event.add_tag(event, t)
+    else:
+        misp.tag(event, tlp)
+        if len(pulse['tags']) > 0:
+            for t in pulse['tags']:
+                misp.tag(event, t)
 
+    #check if attributes exist if not add
     if not check_if_empty_att(pulse['description']):
         event.add_attribute("other", "Description: "+ pulse['description'])
     if not check_if_empty_att(pulse['malware_families']):
