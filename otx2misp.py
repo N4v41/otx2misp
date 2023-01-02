@@ -138,7 +138,7 @@ def send2misp(pulse, proxy_usage, dedup_events):
     event, event_new = create_event(misp, event_name, dedup_events)
     event.add_attribute('other', "This Pulse was created on:" + pulse['created'])
     if pulse['modified']:
-        event.add_attribute('other', "This Pulse was edited on:" + pulse['created'])
+        event.add_attribute('other', "This Pulse was edited on:" + pulse['modified'])
 
     #add Tag to events
     tlp = "tlp:"+pulse['tlp']
@@ -179,7 +179,7 @@ def send2misp(pulse, proxy_usage, dedup_events):
         misp_event = misp.add_event(event, pythonify=True)
         print("\t [*] Event with ID " + str(misp_event.id) + " has been successfully stored in MISP.")
 
-
+##show information about pulses
 def show_att(key, att):
     if type(att) == list and len(att) == 0:
         print("\t\t [-] " + key + ": " + "Unknown")
@@ -226,17 +226,19 @@ def show_pulse(pulse):
     print("\t\t [-] Title: " + pulse['name'])
     print("\t\t [-] ID: " + pulse['id'])
     print("\t\t [-] TLP: " + pulse['tlp'])
-    show_att("Description", pulse['description'])
-    show_att("Malware families", pulse['malware_families'])
-    show_att("Targeted countries", pulse['targeted_countries'])
-    show_att("Adversary", pulse['adversary'])
-    show_att("ATT&CK Techniques", pulse['attack_ids'])
-    show_tags(pulse["tags"])
-    show_references(pulse['references'])
-    print("\t\t [-] IoCs associated with this pulse:")
-    for ioc in pulse['indicators']:
-        show_ioc(ioc)
-
+    if verbosity >= 2:
+        show_att("Description", pulse['description'])
+        show_att("Malware families", pulse['malware_families'])
+        show_att("Targeted countries", pulse['targeted_countries'])
+        show_att("Adversary", pulse['adversary'])
+        show_att("ATT&CK Techniques", pulse['attack_ids'])
+        show_tags(pulse["tags"])
+        show_references(pulse['references'])
+    if verbosity >= 3:
+        print("\t\t [-] IoCs associated with this pulse:")
+        for ioc in pulse['indicators']:
+            show_ioc(ioc)
+##-----------------------------------------------------------------------------------------------
 
 def filter_pulse_by_attck_technique(pulse, techniques_list):
     contains_technique = False
@@ -278,6 +280,7 @@ def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pul
     today = date.today()
     date_today = today.strftime("%Y-%m-%d")
     now = parse(date_today)
+    print("[*] Searching for Pulses on OTX:")
     pulses = pulse_cache(api, cache_pulse, use_cached_pulse)
     for pulse in pulses:
         threat = parse(pulse['created'])
@@ -329,9 +332,18 @@ def start_listen_otx():
     parser.add_argument("-t", "--techniques", help=" Filter OTX pulses gathered in case of a match with any "
                                                "ATT&CK techniques of your list.",
                                                action="store_true")
+    parser.add_argument("-v", "--verbose", dest="verbose",
+                    action="count", default=0,
+                    help="Verbosity, repeat to increase the verbosity level.")                                           
     args = parser.parse_args()
+    if args.verbose == 1:
+        verbosity=1
+    elif args.verbose == 2:
+        verbosity=2
+    else :
+        verbosity=3
+
     proxy_usage = False
-    print("[*] Searching for Pulses on OTX:")
     if args.days:
         max_days = args.days
     else:
