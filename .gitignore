@@ -15,3 +15,5 @@
 .cpython
 __pycache__/
 /test/.pytest_cache
+#cache files
+.cache
