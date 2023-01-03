@@ -231,21 +231,21 @@ def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pul
                     contains_alert = filter_pulse_by_keyword(pulse, keywords_list)
                     contains_technique = filter_pulse_by_attck_technique(pulse, techniques_list)
                     if contains_technique or contains_alert:
-                        show_pulse(pulse)
+                        show_pulse(pulse, verbosity)
                         pulse_list.append(pulse)
                 else:
                     contains_alert = filter_pulse_by_keyword(pulse, keywords_list)
                     if contains_alert:
-                        show_pulse(pulse)
+                        show_pulse(pulse, verbosity)
                         pulse_list.append(pulse)
             elif techniques:
                 contains_technique = filter_pulse_by_attck_technique(pulse, techniques_list)
                 if contains_technique:
-                    show_pulse(pulse)
+                    show_pulse(pulse, verbosity)
                     pulse_list.append(pulse)
 
             else:
-                show_pulse(pulse)
+                show_pulse(pulse, verbosity)
                 pulse_list.append(pulse)
 
     print("[*] Number of OTX Pulses gathered: " + str(len(pulse_list)))
