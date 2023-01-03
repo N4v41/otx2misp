@@ -39,6 +39,7 @@ def show_references(references):
 
 
 def show_pulse(pulse):
+    global verbosity
     print("\t[+] New OTX Pulse by "+ pulse['author_name'] + ' created: '+pulse['created'])
     if pulse['modified'] != '':
         print("\t\t [-] This pulse was edited: "+pulse['modified'])
