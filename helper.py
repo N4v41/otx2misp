@@ -1,3 +1,6 @@
+
+global verbosity
+
 def show_att(key, att):
     if type(att) == list and len(att) == 0:
         print("\t\t [-] " + key + ": " + "Unknown")

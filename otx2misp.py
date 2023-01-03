@@ -8,7 +8,7 @@ from OTXv2 import OTXv2
 from pymisp import PyMISP, MISPEvent, PyMISPError
 from datetime import date
 from dateutil.parser import *
-from .helper import *
+from helper import *
 
 # disable verify SSL warnings
 try:
