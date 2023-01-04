@@ -222,7 +222,7 @@ def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pul
     date_today = today.strftime("%Y-%m-%d")
     now = parse(date_today)
     print("[*] Searching for Pulses on OTX:")
-    pulse_cache(api, max_days, cache_pulse, use_cached_pulse)
+    pulses = pulse_cache(api, max_days, cache_pulse, use_cached_pulse)
     ###needs a better logic
     #if the parameter max days was passed get only events with modification in the time window
 
