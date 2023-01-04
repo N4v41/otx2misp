@@ -6,7 +6,7 @@ import os
 import pickle
 from OTXv2 import OTXv2
 from pymisp import PyMISP, MISPEvent, PyMISPError
-from datetime import date
+from datetime import date, datetime, timedelta
 from dateutil.parser import *
 from helper import *
 
@@ -54,7 +54,6 @@ def misp_connection(url, misp_key, proxy_usage):
 
     return misp
 
-## need refactoring
 def new_misp_event(event_name):
     event = MISPEvent()
     event.distribution = 0
@@ -142,16 +141,12 @@ def send2misp(pulse, proxy_usage, dedup_events):
 
     #add Tag to events
     tlp = "tlp:"+pulse['tlp']
-    if event_new:
-        event.add_tag(tlp)
-        if len(pulse['tags']) > 0:
-            for t in pulse['tags']:
-                event.add_tag(t)
-    else:
-        misp.tag(event, tlp)
-        if len(pulse['tags']) > 0:
-            for t in pulse['tags']:
-                misp.tag(event, t)
+    
+    event.add_tag(tlp)
+    if len(pulse['tags']) > 0:
+        for t in pulse['tags']:
+            event.add_tag(t)
+
 
     #check if attributes exist if not add
     if not check_if_empty_att(pulse['description']):
@@ -197,7 +192,13 @@ def filter_pulse_by_keyword(pulse, keywords_list):
 
     return contains_alerts
 
-def pulse_cache(api, cache_pulse, use_cached_pulse):
+def pulse_cache(api, max_days, cache_pulse, use_cached_pulse):
+    # if max_days :
+    #     start_date = datetime.now() - timedelta(days=max_days)
+    #     start_date_tp = start_date.time()
+    #     pulses = api.getall(modified_since=start_date_tp)
+    #     return pulses
+    #else:
     if cache_pulse:
         pulses = api.getall()
         #export pulses list to file
@@ -213,7 +214,7 @@ def pulse_cache(api, cache_pulse, use_cached_pulse):
         pulses = api.getall()
         return pulses
 
-def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pulse):
+def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pulse, c_or_m_pulses):
     pulse_list = []
     keywords_list = load_file("keywords.txt")
     techniques_list = load_file("attack_ids.txt")
@@ -221,11 +222,24 @@ def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pul
     date_today = today.strftime("%Y-%m-%d")
     now = parse(date_today)
     print("[*] Searching for Pulses on OTX:")
-    pulses = pulse_cache(api, cache_pulse, use_cached_pulse)
+    pulse_cache(api, max_days, cache_pulse, use_cached_pulse)
+    ###needs a better logic
+    #if the parameter max days was passed get only events with modification in the time window
+
+
     for pulse in pulses:
-        threat = parse(pulse['created'])
-        days = now - threat
-        if days.days <= int(max_days):
+        if c_or_m_pulses:
+            threat_c = parse(pulse['created'])
+            c_days = now - threat
+            threat_m = parse(pulse['modified'])
+            m_days = now - threat
+            d_filter = m_days.days <= int(max_days) or c_days.days <= int(max_days)
+        else:
+            threat_c = parse(pulse['created'])
+            c_days = now - threat
+            d_filter = c_days.days <= int(max_days)
+
+        if d_filter:
             if alerts:
                 if techniques:
                     contains_alert = filter_pulse_by_keyword(pulse, keywords_list)
@@ -249,7 +263,6 @@ def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pul
                 pulse_list.append(pulse)
 
     print("[*] Number of OTX Pulses gathered: " + str(len(pulse_list)))
-
     return pulse_list
 
 
@@ -269,6 +282,7 @@ def start_listen_otx():
                         action="store_true")
     parser.add_argument("-ccp", "--cache_pulse", help="Cache pulse list to improve testing performance", action="store_true")
     parser.add_argument("-ucp", "--use_cached_pulse", help="Use cached pulse list", action="store_true")
+    parser.add_argument("-p_cm", "--get_pulses_new_or_mod", help="Get pulses created or modified in the range", action="store_true")
     parser.add_argument("-t", "--techniques", help=" Filter OTX pulses gathered in case of a match with any "
                                                "ATT&CK techniques of your list.",
                                                action="store_true")
@@ -292,6 +306,7 @@ def start_listen_otx():
     else:
         max_days = 7
 
+    c_or_m_pulses = args.get_pulses_new_or_mod
     dedup_events = args.misp_dedup
     cache_pulse = args.cache_pulse
     use_cached_pulse = args.use_cached_pulse
@@ -310,21 +325,21 @@ def start_listen_otx():
     if args.alerts:
         print("[*] Checking if the pulses gathered contain any keyword from your list.")
         if args.techniques:
-            pulses = search_on_otx(api, True, True, max_days, cache_pulse, use_cached_pulse)
+            pulses = search_on_otx(api, True, True, max_days, cache_pulse, use_cached_pulse, c_or_m_pulses)
         else:
-            pulses = search_on_otx(api, True, False, max_days, cache_pulse, use_cached_pulse)
+            pulses = search_on_otx(api, True, False, max_days, cache_pulse, use_cached_pulse, c_or_m_pulses)
         send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
     elif args.techniques:
         print("[*] Checking if the pulses gathered contain any ATT&CK Technique from your list.")
-        pulses = search_on_otx(api, False, True, max_days, cache_pulse, use_cached_pulse)
+        pulses = search_on_otx(api, False, True, max_days, cache_pulse, use_cached_pulse, c_or_m_pulses)
         send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
     else:
         print("[*] Checking and sending subscribed pulses gathered.")
-        pulses = search_on_otx(api, False, False, max_days, cache_pulse, use_cached_pulse)
+        pulses = search_on_otx(api, False, False, max_days, cache_pulse, use_cached_pulse, c_or_m_pulses)
         send_to_misp(pulses, proxy_usage, dedup_events)
         sys.exit(0)
 
