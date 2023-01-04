@@ -230,13 +230,13 @@ def search_on_otx(api, alerts, techniques, max_days, cache_pulse, use_cached_pul
     for pulse in pulses:
         if c_or_m_pulses:
             threat_c = parse(pulse['created'])
-            c_days = now - threat
+            c_days = now - threat_c
             threat_m = parse(pulse['modified'])
-            m_days = now - threat
+            m_days = now - threat_m
             d_filter = m_days.days <= int(max_days) or c_days.days <= int(max_days)
         else:
             threat_c = parse(pulse['created'])
-            c_days = now - threat
+            c_days = now - threat_c
             d_filter = c_days.days <= int(max_days)
 
         if d_filter:
