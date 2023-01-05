@@ -121,7 +121,10 @@ def map_iocs(event, pulse):
         if attribute_name == 'other':
             event.add_attribute(attribute_name, "CVE: " + ioc['indicator'])
         elif attribute_name == 'ip-src':
-            event.add_attribute(attribute_name, ioc['title'])
+            if ioc['title'] != '404 NOT FOUND':
+                event.add_attribute(attribute_name, ioc['title'])
+            else:
+                event.add_attribute(attribute_name, ['indicator'])
         elif attribute_name == 'yara':
             event.add_attribute(attribute_name, ioc['content'])
         else:
